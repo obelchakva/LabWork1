@@ -1,3 +1,4 @@
+// create_test_bmp.cpp
 #include "bmp_processor.h"
 #include <vector>
 #include <fstream>
