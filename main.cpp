@@ -1,4 +1,6 @@
-// main.cpp
+/* Obelchak Vyacheslav st129564@student.spbu.ru
+   Lab work #1
+*/
 #include "bmp_processor.h"
 #include <iostream>
 
