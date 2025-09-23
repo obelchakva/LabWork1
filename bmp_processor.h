@@ -1,5 +1,4 @@
 /* Obelchak Vyacheslav st129564@student.spbu.ru
-   Lab work #1
 */
 #ifndef BMP_PROCESSOR_H
 #define BMP_PROCESSOR_H
