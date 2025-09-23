@@ -49,3 +49,4 @@ struct Bitmapinfo
 #pragma pack(pop)
 
 #endif
+

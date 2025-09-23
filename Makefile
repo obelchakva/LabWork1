@@ -1,6 +1,6 @@
 PROJECT = bmp_processor
 CXX = g++
-CXXFLAGS = -Werror -Wpedantic -Wall
+CXXFLAGS = -Werror -Wpedantic -Wall -fopenmp
 LGTESTFLAGS = -lgtest -lgtest_main -pthread
 
 DEPS = $(wildcard *.hpp)
@@ -14,12 +14,20 @@ default: all
 	$(CXX) $(CXXFLAGS) -c $<
 
 $(PROJECT): main.o $(OBJ)
-	$(CXX) -o $@ main.o $(OBJ)
+	$(CXX) $(CXXFLAGS) -o $@ main.o $(OBJ) -fopenmp  
 
 all: $(PROJECT)
 
+TEST_OBJ = tests.o
+TEST_PROJECT = tests
 
-.PHONY: clean
+$(TEST_PROJECT): $(TEST_OBJ) $(OBJ)
+	$(CXX) -o $@ $(TEST_OBJ) $(OBJ) $(LGTESTFLAGS) -fopenmp
+
+.PHONY: clean test
 
 clean:
-	rm -f $(PROJECT) bmp_processor.o main.o 1.bmp 2.bmp 3.bmp
+	rm -f $(PROJECT) $(TEST_PROJECT) bmp_processor.o main.o 1.bmp 2.bmp 3.bmp
+
+test: $(TEST_PROJECT)
+	./$(TEST_PROJECT)

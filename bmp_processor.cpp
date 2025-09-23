@@ -9,6 +9,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <omp.h>
 
 Rotatebmp::Rotatebmp(int kernelSize, double sigmaa) {
     header = new Fileheader;
@@ -18,6 +19,7 @@ Rotatebmp::Rotatebmp(int kernelSize, double sigmaa) {
     kernel = nullptr;
     read();
 }
+
 Rotatebmp::Rotatebmp() {
     header = new Fileheader;
     bitmap = new Bitmapinfo;
@@ -26,6 +28,7 @@ Rotatebmp::Rotatebmp() {
     kernel = nullptr;
     read();
 }
+
 void Rotatebmp::read() {
     std::string name;
     std::cout << "Please, enter the name of your bmp file" << std::endl;
@@ -34,8 +37,8 @@ void Rotatebmp::read() {
     std::ifstream input;
     input.open(name, std::ios::binary | std::ios::in);
 
-    input.read(reinterpret_cast<char *>(header), sizeof(*header));
-    input.read(reinterpret_cast<char *>(bitmap), sizeof(*bitmap));
+    input.read(reinterpret_cast<char*>(header), sizeof(*header));
+    input.read(reinterpret_cast<char*>(bitmap), sizeof(*bitmap));
 
     origrowSize = (bitmap->biWidth * bitmap->biBitCount / 8 + 3) & ~3;
 
@@ -62,8 +65,8 @@ void Rotatebmp::show() {
     std::ofstream output;
     output.open(name, std::ios::binary | std::ios::out);
 
-    output.write(reinterpret_cast<char *>(header), sizeof(*header));
-    output.write(reinterpret_cast<char *>(bitmap), sizeof(*bitmap));
+    output.write(reinterpret_cast<char*>(header), sizeof(*header));
+    output.write(reinterpret_cast<char*>(bitmap), sizeof(*bitmap));
 
     for (int i = 0; i < bitmap->biHeight; i++) {
         output.write(&curbiTable[currowSize * i], currowSize);
@@ -96,12 +99,12 @@ void Rotatebmp::rotate_clockwise() {
     header->Fsize = sizeof(Fileheader) + sizeof(Bitmapinfo) + bitmap->biSizeImage;
 
     char *rotated1_data = new char[bitmap->biHeight * currowSize];
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < tempHeight; i++) {
         for (int j = 0; j < tempWidth; j++) {
             for (int k = 0; k < (bitmap->biBitCount / 8); k++) {
                 rotated1_data[(j * tempHeight + i) * (bitmap->biBitCount / 8) + k] =
-                    curbiTable[(i * temprowSize) + (tempWidth - 1 - j) * (bitmap->biBitCount / 8) +
-                               k];
+                    curbiTable[(i * temprowSize) + (tempWidth - 1 - j) * (bitmap->biBitCount / 8) + k];
             }
         }
     }
@@ -128,11 +131,11 @@ void Rotatebmp::rotate_counterclw() {
 
     char *rotated2_data = new char[bitmap->biHeight * currowSize];
 
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < tempHeight; i++) {
         for (int j = 0; j < tempWidth; j++) {
             for (int k = 0; k < (bitmap->biBitCount / 8); k++) {
-                rotated2_data[(j * tempHeight + (tempHeight - 1 - i)) * (bitmap->biBitCount / 8) +
-                              k] =
+                rotated2_data[(j * tempHeight + (tempHeight - 1 - i)) * (bitmap->biBitCount / 8) + k] =
                     curbiTable[(i * temprowSize) + (j * (bitmap->biBitCount / 8)) + k];
             }
         }
@@ -146,7 +149,7 @@ void Rotatebmp::rotate_counterclw() {
 }
 
 void Rotatebmp::create_kernel() {
-    kernel = new double *[kSize];
+    kernel = new double*[kSize];
     for (int i = 0; i < kSize; i++) {
         kernel[i] = new double[kSize];
     }
@@ -155,8 +158,7 @@ void Rotatebmp::create_kernel() {
         for (int j = 0; j < kSize; j++) {
             double x = i - kSize / 2;
             double y = j - kSize / 2;
-            double value =
-                (1 / (2 * M_PI * sigma * sigma) * exp(-(x * x + y * y) / (2 * sigma * sigma)));
+            double value = (1 / (2 * M_PI * sigma * sigma) * exp(-(x * x + y * y) / (2 * sigma * sigma)));
             kernel[i][j] = value;
             sum += value;
         }
@@ -175,6 +177,7 @@ void Rotatebmp::apply_gaussian_blur() {
     }
     char *ans = new char[bitmap->biHeight * currowSize];
     int halfSize = kSize / 2;
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < bitmap->biHeight; i++) {
         for (int j = 0; j < bitmap->biWidth; j++) {
             double red_sum = 0.0;
@@ -186,8 +189,7 @@ void Rotatebmp::apply_gaussian_blur() {
                     int curi = i + ki;
                     int curj = j + kj;
 
-                    if (curi >= 0 && curi < bitmap->biHeight && curj >= 0 &&
-                        curj < bitmap->biWidth) {
+                    if (curi >= 0 && curi < bitmap->biHeight && curj >= 0 && curj < bitmap->biWidth) {
                         int pixelIndex = curi * currowSize + curj * 3;
                         double kvalue = kernel[halfSize + ki][halfSize + kj];
 

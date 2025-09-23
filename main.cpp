@@ -1,10 +1,10 @@
-/* Обельчак Вячеслав st129564@student.spbu.ru
-   Лабораторная работа №1 версия 2
+/* Obelchak Vyacheslav st129564@student.spbu.ru
+   Laboratory Work n.1 version 2
 */
 #include "bmp_processor.hpp"
 #include "image.hpp"
 #include <chrono>
-#include <iostream>
+#include <iostream>  // Подключили iostream
 
 using namespace std::chrono;
 
@@ -60,3 +60,4 @@ int main() {
 
     return 0;
 }
+

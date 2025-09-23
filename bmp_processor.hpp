@@ -15,10 +15,14 @@ public:
     void create_kernel();
     void apply_gaussian_blur();
 
-    void show();       // Оставляем публичным
-    void clear();      // Оставляем публичным
-    void read();       // Делаем публичным
+    void show();               
+    void clear();              
+    void read();               
 
+    bool hasHeader() const { return header != nullptr; } 
+    bool hasBitmapInfo() const { return bitmap != nullptr; } 
+    int32_t getOrigWidth() const { return origWidth; }  
+    int32_t getOrigHeight() const { return origHeight; }  
     ~Rotatebmp();
 private:
     Fileheader* header;
