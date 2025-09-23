@@ -27,7 +27,7 @@ $(TEST_PROJECT): $(TEST_OBJ) $(OBJ)
 .PHONY: clean test
 
 clean:
-	rm -f $(PROJECT) $(TEST_PROJECT) bmp_processor.o main.o 1.bmp 2.bmp 3.bmp
+	rm -f $(PROJECT) $(TEST_PROJECT) bmp_processor.o main.o tests.o 1.bmp 2.bmp 3.bmp
 
 test: $(TEST_PROJECT)
 	./$(TEST_PROJECT)
