@@ -27,9 +27,7 @@ Rotatebmp::Rotatebmp() {
     read();
 }
 void Rotatebmp::read() {
-    std::string name;
-    std::cout << "Please, enter the name of your bmp file" << std::endl;
-    std::cin >> name;
+    std::string name = "input.bmp";
 
     std::ifstream input;
     input.open(name, std::ios::binary | std::ios::in);
