@@ -1,43 +1,62 @@
-/* Obelchak Vyacheslav st129564@student.spbu.ru
-   Lab work #1
+/* Обельчак Вячеслав st129564@student.spbu.ru
+   Лабораторная работа №1 версия 2
 */
-#include "bmp_processor.h"
+#include "bmp_processor.hpp"
+#include "image.hpp"
+#include <chrono>
 #include <iostream>
 
+using namespace std::chrono;
+
 int main() {
-    BMPHeader header;
-    std::vector<uint8_t> image;
+    auto start_time = high_resolution_clock::now();
 
-    // Загрузка изображения
-    if (!loadBMP("input.bmp", header, image)) {
-        std::cerr << "Failed to load BMP image or header is incorrect." << std::endl;
-        return 1;
-    }
+    Rotatebmp a;
+    auto t_read_start = high_resolution_clock::now();
+    a.read();
+    auto t_read_end = high_resolution_clock::now();
 
-    if (image.size() == 0 || header.width <= 0 || header.height <= 0) {
-        std::cerr << "Invalid image data or header dimensions." << std::endl;
-        return 1;
-    }
+    auto t_rotate_cw_start = high_resolution_clock::now();
+    a.rotate_clockwise();
+    auto t_rotate_cw_end = high_resolution_clock::now();
 
-    // Поворот на 90 градусов по часовой стрелке
-    std::cout << "Starting clockwise rotation..." << std::endl;
-    std::cout << "Image size: " << image.size() << ", Width: " << header.width << ", Height: " << header.height << std::endl;
-    auto rotatedClockwise = rotateClockwise(header, image);
-    std::cout << "Rotation completed." << std::endl;
-    saveBMP("rotated_clockwise.bmp", header, rotatedClockwise);
+    auto t_write_cw_start = high_resolution_clock::now();
+    a.show();
+    auto t_write_cw_end = high_resolution_clock::now();
 
-    // Поворот на 90 градусов против часовой стрелки
-    std::cout << "Rotating conter clockwise..." << std::endl;
-    auto rotatedCounterClockwise = rotateCounterClockwise(header, image);
-    std::cout << "Saving rotated conter clockwise image..." << std::endl;
-    saveBMP("rotated_counterclockwise.bmp", header, rotatedCounterClockwise);
+    a.clear();
 
-    // Применение фильтра Гаусса
-    std::cout << "Applying Gaussian filter..." << std::endl;
-    auto blurredImage = applyGaussianFilter(header, image);
-    std::cout << "Saving applied Gaussian filter..." << std::endl;
-    saveBMP("blurred_image.bmp", header, blurredImage);
+    auto t_rotate_ccw_start = high_resolution_clock::now();
+    a.rotate_counterclw();
+    auto t_rotate_ccw_end = high_resolution_clock::now();
 
-    std::cout << "Processing completed!" << std::endl;
+    auto t_write_ccw_start = high_resolution_clock::now();
+    a.show();
+    auto t_write_ccw_end = high_resolution_clock::now();
+
+    a.clear();
+
+    auto t_gauss_start = high_resolution_clock::now();
+    a.create_kernel();
+    a.apply_gaussian_blur();
+    auto t_gauss_end = high_resolution_clock::now();
+
+    auto t_write_gauss_start = high_resolution_clock::now();
+    a.show();
+    auto t_write_gauss_end = high_resolution_clock::now();
+
+    a.clear();
+
+    auto end_time = high_resolution_clock::now();
+
+    std::cout << "Reading time: " << duration_cast<milliseconds>(t_read_end - t_read_start).count() << " ms\n";
+    std::cout << "Clockwise rotation time: " << duration_cast<milliseconds>(t_rotate_cw_end - t_rotate_cw_start).count() << " ms\n";
+    std::cout << "Writing clockwise rotation time: " << duration_cast<milliseconds>(t_write_cw_end - t_write_cw_start).count() << " ms\n";
+    std::cout << "Counterclockwise rotation time: " << duration_cast<milliseconds>(t_rotate_ccw_end - t_rotate_ccw_start).count() << " ms\n";
+    std::cout << "Writing counterclockwise rotation time: " << duration_cast<milliseconds>(t_write_ccw_end - t_write_ccw_start).count() << " ms\n";
+    std::cout << "Gauss filter time: " << duration_cast<milliseconds>(t_gauss_end - t_gauss_start).count() << " ms\n";
+    std::cout << "Writing Gauss filter time: " << duration_cast<milliseconds>(t_write_gauss_end - t_write_gauss_start).count() << " ms\n";
+    std::cout << "Total execution time: " << duration_cast<milliseconds>(end_time - start_time).count() << " ms\n";
+
     return 0;
 }
