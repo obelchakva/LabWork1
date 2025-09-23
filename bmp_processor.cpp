@@ -1,139 +1,225 @@
 /* Obelchak Vyacheslav st129564@student.spbu.ru
-   Lab work #1
+   Laboratory Work n.1 version 2
 */
-#include "bmp_processor.h"
-#include <iostream>
+#include "bmp_processor.hpp"
+#include "image.hpp"
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <fstream>
-#include <vector>
+#include <iostream>
+#include <omp.h>
 
-bool loadBMP(const std::string& filename, BMPHeader& header, std::vector<uint8_t>& image) {
-    std::ifstream file(filename, std::ios::binary);
-    if (!file) {
-        std::cerr << "Error: Could not open file " << filename << std::endl;
-        return false;
-    }
-
-    // Считываем заголовок BMP
-    file.read(reinterpret_cast<char*>(&header.fileType), sizeof(header.fileType));
-    file.read(reinterpret_cast<char*>(&header.fileSize), sizeof(header.fileSize));
-    file.read(reinterpret_cast<char*>(&header.reserved), sizeof(header.reserved));
-    file.read(reinterpret_cast<char*>(&header.dataOffset), sizeof(header.dataOffset));
-    file.read(reinterpret_cast<char*>(&header.headerSize), sizeof(header.headerSize));
-    file.read(reinterpret_cast<char*>(&header.width), sizeof(header.width));
-    file.read(reinterpret_cast<char*>(&header.height), sizeof(header.height));
-    file.read(reinterpret_cast<char*>(&header.planes), sizeof(header.planes));
-    file.read(reinterpret_cast<char*>(&header.bitCount), sizeof(header.bitCount));
-    file.read(reinterpret_cast<char*>(&header.compression), sizeof(header.compression));
-    file.read(reinterpret_cast<char*>(&header.sizeImage), sizeof(header.sizeImage));
-    file.read(reinterpret_cast<char*>(&header.xPixelsPerMeter), sizeof(header.xPixelsPerMeter));
-    file.read(reinterpret_cast<char*>(&header.yPixelsPerMeter), sizeof(header.yPixelsPerMeter));
-    file.read(reinterpret_cast<char*>(&header.colorsUsed), sizeof(header.colorsUsed));
-    file.read(reinterpret_cast<char*>(&header.colorsImportant), sizeof(header.colorsImportant));
-
-    // Отладочный вывод загруженных значений
-    std::cout << "File type: " << header.fileType << std::endl;
-    std::cout << "File size: " << header.fileSize << std::endl;
-    std::cout << "Data offset: " << header.dataOffset << std::endl;
-    std::cout << "Header size: " << header.headerSize << std::endl;
-    std::cout << "Width: " << header.width << std::endl;
-    std::cout << "Height: " << header.height << std::endl;
-    std::cout << "Bit count: " << header.bitCount << std::endl;
-    std::cout << "Compression: " << header.compression << std::endl;
-    std::cout << "Image size: " << header.sizeImage << std::endl;
-
-    // Проверяем, правильно ли загружены основные параметры
-    if (header.fileType != 0x4D42) {
-        std::cerr << "Error: Not a BMP file." << std::endl;
-        return false;
-    }
-
-    // Перемещаем указатель на начало данных изображения и загружаем их
-    file.seekg(header.dataOffset, std::ios::beg);
-    image.resize(header.sizeImage);
-    file.read(reinterpret_cast<char*>(image.data()), header.sizeImage);
-
-    // Проверяем, что данные изображения загружены
-    if (image.empty()) {
-        std::cerr << "Error: Failed to load image data." << std::endl;
-        return false;
-    }
-
-    return true;
+Rotatebmp::Rotatebmp(int kernelSize, double sigmaa) {
+    header = new Fileheader;
+    bitmap = new Bitmapinfo;
+    kSize = kernelSize;
+    sigma = sigmaa;
+    kernel = nullptr;
+    read();
 }
 
-bool saveBMP(const std::string& filename, const BMPHeader& header, const std::vector<uint8_t>& image) {
-    std::ofstream file(filename, std::ios::binary);
-    if (!file) {
-        std::cerr << "Error: Could not open file " << filename << std::endl;
-        return false;
-    }
-
-    // Запись заголовка BMP
-    file.write(reinterpret_cast<const char*>(&header.fileType), sizeof(header.fileType));
-    file.write(reinterpret_cast<const char*>(&header.fileSize), sizeof(header.fileSize));
-    file.write(reinterpret_cast<const char*>(&header.reserved), sizeof(header.reserved));
-    file.write(reinterpret_cast<const char*>(&header.dataOffset), sizeof(header.dataOffset));
-    file.write(reinterpret_cast<const char*>(&header.headerSize), sizeof(header.headerSize));
-    file.write(reinterpret_cast<const char*>(&header.width), sizeof(header.width));
-    file.write(reinterpret_cast<const char*>(&header.height), sizeof(header.height));
-    file.write(reinterpret_cast<const char*>(&header.planes), sizeof(header.planes));
-    file.write(reinterpret_cast<const char*>(&header.bitCount), sizeof(header.bitCount));
-    file.write(reinterpret_cast<const char*>(&header.compression), sizeof(header.compression));
-    file.write(reinterpret_cast<const char*>(&header.sizeImage), sizeof(header.sizeImage));
-    file.write(reinterpret_cast<const char*>(&header.xPixelsPerMeter), sizeof(header.xPixelsPerMeter));
-    file.write(reinterpret_cast<const char*>(&header.yPixelsPerMeter), sizeof(header.yPixelsPerMeter));
-    file.write(reinterpret_cast<const char*>(&header.colorsUsed), sizeof(header.colorsUsed));
-    file.write(reinterpret_cast<const char*>(&header.colorsImportant), sizeof(header.colorsImportant));
-
-    // Запись данных изображения
-    file.write(reinterpret_cast<const char*>(image.data()), image.size());
-
-    return true;
+Rotatebmp::Rotatebmp() {
+    header = new Fileheader;
+    bitmap = new Bitmapinfo;
+    kSize = 3;
+    sigma = 1.0;
+    kernel = nullptr;
+    read();
 }
 
-std::vector<uint8_t> rotateClockwise(BMPHeader& header, const std::vector<uint8_t>& image) {
-    std::cout << "Starting clockwise rotation..." << std::endl;
+void Rotatebmp::read() {
+    std::string name = "input.bmp";
 
-    // Размеры после поворота
-    int newWidth = header.height;
-    int newHeight = header.width;
+    std::ifstream input;
+    input.open(name, std::ios::binary | std::ios::in);
 
-    std::vector<uint8_t> rotatedImage(newWidth * newHeight);
-    for (int y = 0; y < header.height; ++y) {
-        for (int x = 0; x < header.width; ++x) {
-            rotatedImage[(x * newHeight) + (newHeight - y - 1)] = image[(y * header.width) + x];
+    input.read(reinterpret_cast<char*>(header), sizeof(*header));
+    input.read(reinterpret_cast<char*>(bitmap), sizeof(*bitmap));
+
+    origrowSize = (bitmap->biWidth * bitmap->biBitCount / 8 + 3) & ~3;
+
+    origbiTable = new char[origrowSize * bitmap->biHeight];
+
+    for (int i = 0; i < bitmap->biHeight; i++) {
+        input.read(&origbiTable[origrowSize * i], origrowSize);
+    }
+    currowSize = origrowSize;
+    origWidth = bitmap->biWidth;
+    origHeight = bitmap->biHeight;
+    origbiSizeImage = bitmap->biSizeImage;
+    origFsize = header->Fsize;
+
+    curbiTable = new char[origrowSize * bitmap->biHeight];
+    std::copy(origbiTable, origbiTable + origrowSize * bitmap->biHeight, curbiTable);
+}
+
+void Rotatebmp::show() {
+    std::string name;
+    std::cout << "Please, enter the name of file you want to see as a result: ";
+    std::cin >> name;
+
+    std::ofstream output;
+    output.open(name, std::ios::binary | std::ios::out);
+
+    output.write(reinterpret_cast<char*>(header), sizeof(*header));
+    output.write(reinterpret_cast<char*>(bitmap), sizeof(*bitmap));
+
+    for (int i = 0; i < bitmap->biHeight; i++) {
+        output.write(&curbiTable[currowSize * i], currowSize);
+    }
+}
+
+void Rotatebmp::clear() {
+    currowSize = origrowSize;
+    bitmap->biWidth = origWidth;
+    bitmap->biHeight = origHeight;
+    bitmap->biSizeImage = origbiSizeImage;
+    header->Fsize = origFsize;
+
+    delete[] curbiTable;
+    curbiTable = new char[origrowSize * bitmap->biHeight];
+    std::copy(origbiTable, origbiTable + origrowSize * bitmap->biHeight, curbiTable);
+}
+
+void Rotatebmp::rotate_clockwise() {
+    int32_t tempWidth = bitmap->biWidth;
+    int32_t tempHeight = bitmap->biHeight;
+
+    bitmap->biWidth = tempHeight;
+    bitmap->biHeight = tempWidth;
+
+    int temprowSize = currowSize;
+    currowSize = (bitmap->biWidth * bitmap->biBitCount / 8 + 3) & ~3;
+
+    bitmap->biSizeImage = currowSize * bitmap->biHeight;
+    header->Fsize = sizeof(Fileheader) + sizeof(Bitmapinfo) + bitmap->biSizeImage;
+
+    char *rotated1_data = new char[bitmap->biHeight * currowSize];
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < tempHeight; i++) {
+        for (int j = 0; j < tempWidth; j++) {
+            for (int k = 0; k < (bitmap->biBitCount / 8); k++) {
+                rotated1_data[(j * tempHeight + i) * (bitmap->biBitCount / 8) + k] =
+                    curbiTable[(i * temprowSize) + (tempWidth - 1 - j) * (bitmap->biBitCount / 8) + k];
+            }
         }
     }
 
-    header.width = newWidth;
-    header.height = newHeight;
+    delete[] curbiTable;
+    curbiTable = new char[bitmap->biHeight * currowSize];
+    std::copy(rotated1_data, rotated1_data + currowSize * bitmap->biHeight, curbiTable);
 
-    std::cout << "Clockwise rotation completed. New dimensions: " << header.width << "x" << header.height << std::endl;
-    return rotatedImage;
+    delete[] rotated1_data;
 }
 
-std::vector<uint8_t> rotateCounterClockwise(BMPHeader& header, const std::vector<uint8_t>& image) {
-    std::cout << "Starting counter-clockwise rotation..." << std::endl;
+void Rotatebmp::rotate_counterclw() {
+    int32_t tempWidth = bitmap->biWidth;
+    int32_t tempHeight = bitmap->biHeight;
 
-    // Размеры после поворота
-    int newWidth = header.height;
-    int newHeight = header.width;
+    bitmap->biWidth = tempHeight;
+    bitmap->biHeight = tempWidth;
 
-    std::vector<uint8_t> rotatedImage(newWidth * newHeight);
-    for (int y = 0; y < header.height; ++y) {
-        for (int x = 0; x < header.width; ++x) {
-            rotatedImage[((newWidth - x - 1) * newHeight) + y] = image[(y * header.width) + x];
+    int temprowSize = currowSize;
+    currowSize = (bitmap->biWidth * bitmap->biBitCount / 8 + 3) & ~3;
+
+    bitmap->biSizeImage = currowSize * bitmap->biHeight;
+    header->Fsize = sizeof(Fileheader) + sizeof(Bitmapinfo) + bitmap->biSizeImage;
+
+    char *rotated2_data = new char[bitmap->biHeight * currowSize];
+
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < tempHeight; i++) {
+        for (int j = 0; j < tempWidth; j++) {
+            for (int k = 0; k < (bitmap->biBitCount / 8); k++) {
+                rotated2_data[(j * tempHeight + (tempHeight - 1 - i)) * (bitmap->biBitCount / 8) + k] =
+                    curbiTable[(i * temprowSize) + (j * (bitmap->biBitCount / 8)) + k];
+            }
         }
     }
 
-    header.width = newWidth;
-    header.height = newHeight;
+    delete[] curbiTable;
+    curbiTable = new char[bitmap->biHeight * currowSize];
+    std::copy(rotated2_data, rotated2_data + currowSize * bitmap->biHeight, curbiTable);
 
-    std::cout << "Counter-clockwise rotation completed. New dimensions: " << header.width << "x" << header.height << std::endl;
-    return rotatedImage;
+    delete[] rotated2_data;
 }
 
-std::vector<uint8_t> applyGaussianFilter(const BMPHeader& header, const std::vector<uint8_t>& image) {
-    // Применение фильтра Гаусса (можно реализовать, если нужно)
-    return image; // Просто возвращаем изображение без изменений
+void Rotatebmp::create_kernel() {
+    kernel = new double*[kSize];
+    for (int i = 0; i < kSize; i++) {
+        kernel[i] = new double[kSize];
+    }
+    double sum = 0.0;
+    for (int i = 0; i < kSize; i++) {
+        for (int j = 0; j < kSize; j++) {
+            double x = i - kSize / 2;
+            double y = j - kSize / 2;
+            double value = (1 / (2 * M_PI * sigma * sigma) * exp(-(x * x + y * y) / (2 * sigma * sigma)));
+            kernel[i][j] = value;
+            sum += value;
+        }
+    }
+
+    for (int i = 0; i < kSize; i++) {
+        for (int j = 0; j < kSize; j++) {
+            kernel[i][j] /= sum;
+        }
+    }
+}
+
+void Rotatebmp::apply_gaussian_blur() {
+    if (kernel == nullptr) {
+        create_kernel();
+    }
+    char *ans = new char[bitmap->biHeight * currowSize];
+    int halfSize = kSize / 2;
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < bitmap->biHeight; i++) {
+        for (int j = 0; j < bitmap->biWidth; j++) {
+            double red_sum = 0.0;
+            double green_sum = 0.0;
+            double blue_sum = 0.0;
+
+            for (int ki = -halfSize; ki <= halfSize; ki++) {
+                for (int kj = -halfSize; kj <= halfSize; kj++) {
+                    int curi = i + ki;
+                    int curj = j + kj;
+
+                    if (curi >= 0 && curi < bitmap->biHeight && curj >= 0 && curj < bitmap->biWidth) {
+                        int pixelIndex = curi * currowSize + curj * 3;
+                        double kvalue = kernel[halfSize + ki][halfSize + kj];
+
+                        red_sum += static_cast<uint8_t>(curbiTable[pixelIndex]) * kvalue;
+                        green_sum += static_cast<uint8_t>(curbiTable[pixelIndex + 1]) * kvalue;
+                        blue_sum += static_cast<uint8_t>(curbiTable[pixelIndex + 2]) * kvalue;
+                    }
+                }
+            }
+            int outputIndex = i * currowSize + 3 * j;
+            ans[outputIndex] = static_cast<char>(std::min(std::max(0, int(red_sum)), 255));
+            ans[outputIndex + 1] = static_cast<char>(std::min(std::max(0, int(green_sum)), 255));
+            ans[outputIndex + 2] = static_cast<char>(std::min(std::max(0, int(blue_sum)), 255));
+        }
+    }
+
+    delete[] curbiTable;
+    curbiTable = new char[bitmap->biHeight * currowSize];
+    std::copy(ans, ans + currowSize * bitmap->biHeight, curbiTable);
+
+    delete[] ans;
+}
+
+Rotatebmp::~Rotatebmp() {
+    delete header;
+    delete bitmap;
+    delete[] origbiTable;
+    delete[] curbiTable;
+    if (kernel != nullptr) {
+        for (int i = 0; i < kSize; ++i) {
+            delete[] kernel[i];
+        }
+        delete[] kernel;
+    }
 }
