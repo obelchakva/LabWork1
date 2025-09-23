@@ -30,9 +30,7 @@ Rotatebmp::Rotatebmp() {
 }
 
 void Rotatebmp::read() {
-    std::string name;
-    std::cout << "Please, enter the name of your bmp file" << std::endl;
-    std::cin >> name;
+    std::string name = "input.bmp";
 
     std::ifstream input;
     input.open(name, std::ios::binary | std::ios::in);
@@ -218,8 +216,10 @@ Rotatebmp::~Rotatebmp() {
     delete bitmap;
     delete[] origbiTable;
     delete[] curbiTable;
-    for (int i = 0; i < kSize; i++) {
-        delete[] kernel[i];
+    if (kernel != nullptr) {
+        for (int i = 0; i < kSize; ++i) {
+            delete[] kernel[i];
+        }
+        delete[] kernel;
     }
-    delete[] kernel;
 }
